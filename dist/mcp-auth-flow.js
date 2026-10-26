@@ -1042,30 +1042,7 @@ export async function removeAuth(serverName, options = {}) {
         releaseRevocation();
     }
 }
-/**
- * Check if OAuth is supported for a server configuration.
- * OAuth is supported for HTTP servers unless explicitly disabled.
- *
- * @param definition - The server definition
- * @returns True if OAuth is supported
- */
-export function supportsOAuth(definition) {
-    // OAuth requires a URL
-    if (!definition.url)
-        return false;
-    // Explicitly disabled via auth: false or oauth: false
-    if (definition.auth === false)
-        return false;
-    if (definition.oauth === false)
-        return false;
-    if (definition.auth === "oauth")
-        return true;
-    // Configured custom headers take precedence over implicit OAuth auto-detection.
-    if (definition.headers && Object.keys(definition.headers).length > 0)
-        return false;
-    // OAuth is enabled when auth is not specified (auto-detect)
-    return definition.auth === undefined;
-}
+export { supportsOAuth } from "./utils.js";
 /**
  * Initialize the OAuth system on startup.
  * OAuth callback binding is lazy and starts from startAuth() only.
