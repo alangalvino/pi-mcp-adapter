@@ -369,7 +369,7 @@ export async function handleUrlElicitation(options, params, signal) {
         throw new ProtocolError(ProtocolErrorCode.InvalidParams, "URL elicitation only supports HTTP and HTTPS URLs");
     }
     const urlLink = terminalHyperlink(params.url, params.url);
-    const message = params.message.replaceAll(params.url, () => urlLink);
+    const message = params.message.replace(/\bhttps?:\/\/[^\s<>"']+/gi, candidate => candidate === params.url ? urlLink : candidate);
     const decision = await abortable(options.ui.select([
         "MCP Browser Request",
         `Server: ${options.serverName}`,

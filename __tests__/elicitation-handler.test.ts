@@ -332,6 +332,32 @@ describe("MCP elicitation", () => {
     expect(mocks.open).not.toHaveBeenCalled();
   });
 
+  it.each([
+    "?account=work",
+    "#permissions",
+    "/work",
+    ".json",
+    "?return_to=https://example.com/authorize",
+  ])("does not link the requested URL as a prefix of a longer URL ending in %s", async (suffix) => {
+    const { handleElicitationRequest } = await import("../elicitation-handler.ts");
+    const url = "https://example.com/authorize";
+    const longerUrl = `${url}${suffix}`;
+    const ui = createUi({ select: vi.fn().mockResolvedValue("Decline") });
+
+    await handleElicitationRequest({ serverName: "demo", ui, allowUrl: true }, request({
+      mode: "url",
+      message: `Longer URL: ${longerUrl}\nExact URL: ${url}`,
+      elicitationId: "auth-1",
+      url,
+    }));
+
+    const prompt = String(ui.select.mock.calls[0][0]);
+    expect(prompt).toContain(`Longer URL: ${longerUrl}\n`);
+    expect(prompt).toContain(`Exact URL: \u001B]8;;${url}\u001B\\${url}\u001B]8;;\u001B\\`);
+    expect(stripTerminalSequences(prompt)).toContain(`Longer URL: ${longerUrl}\nExact URL: ${url}`);
+    expect(mocks.open).not.toHaveBeenCalled();
+  });
+
   it("rejects URL mode when the client advertised form-only support", async () => {
     const { handleElicitationRequest } = await import("../elicitation-handler.ts");
     const ui = createUi();
