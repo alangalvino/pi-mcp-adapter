@@ -17,6 +17,7 @@ import type { JsonSchemaType } from "@modelcontextprotocol/client";
 import open from "open";
 import { abortable, throwIfAborted } from "./abort.ts";
 import { combineAbortSignals } from "./runtime-owner.ts";
+import { terminalHyperlink } from "./utils.ts";
 
 export type ElicitationValue = string | number | boolean | string[] | undefined;
 type FormProperty = ElicitRequestFormParams["requestedSchema"]["properties"][string];
@@ -425,14 +426,16 @@ export async function handleUrlElicitation(
     throw new ProtocolError(ProtocolErrorCode.InvalidParams, "URL elicitation only supports HTTP and HTTPS URLs");
   }
 
+  const urlLink = terminalHyperlink(params.url, params.url);
+  const message = params.message.replaceAll(params.url, () => urlLink);
   const decision = await abortable(options.ui.select([
     "MCP Browser Request",
     `Server: ${options.serverName}`,
     "",
-    params.message,
+    message,
     "",
     `Host: ${parsed.host}`,
-    `Full URL: ${params.url}`,
+    `Full URL: ${urlLink}`,
     "",
     "Open this URL in your browser?",
   ].join("\n"), ["Open", "Decline"]), signal);

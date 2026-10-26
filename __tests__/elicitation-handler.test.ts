@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ElicitRequest } from "@modelcontextprotocol/client";
+import { getOsc8LinkAtColumn, stripTerminalSequences, Text } from "@earendil-works/pi-tui";
 import type { ElicitationUIContext } from "../elicitation-handler.ts";
 
 const mocks = vi.hoisted(() => ({
@@ -256,7 +257,7 @@ describe("MCP elicitation", () => {
     expect(mocks.open).not.toHaveBeenCalled();
   });
 
-  it("shows the server, host, and full URL before opening an accepted URL elicitation", async () => {
+  it.each([24, 48, 80])("keeps the full elicitation URL clickable at width %i before opening it", async (width) => {
     const { handleElicitationRequest } = await import("../elicitation-handler.ts");
     const onUrlAccepted = vi.fn();
     const ui = createUi({
@@ -264,7 +265,7 @@ describe("MCP elicitation", () => {
       input: vi.fn(),
       notify: vi.fn(),
     });
-    const url = "https://checkout.example.com/authorize?state=a%2Fb";
+    const url = `https://checkout.example.com/authorize?state=a%2Fb&scope=${"a".repeat(100)}`;
 
     const result = await handleElicitationRequest(
       { serverName: "payments", ui, allowUrl: true, onUrlAccepted },
@@ -283,13 +284,52 @@ describe("MCP elicitation", () => {
       "Authorize the payment provider",
       "",
       "Host: checkout.example.com",
-      `Full URL: ${url}`,
+      `Full URL: \u001B]8;;${url}\u001B\\${url}\u001B]8;;\u001B\\`,
       "",
       "Open this URL in your browser?",
     ].join("\n"), ["Open", "Decline"]);
+    const urlLine = String(ui.select.mock.calls[0][0]).split("\n")[6].slice("Full URL: ".length);
+    const rows = new Text(urlLine, 1, 0).render(width);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) {
+      expect(getOsc8LinkAtColumn(row, 1)).toBe(url);
+    }
     expect(mocks.open).toHaveBeenCalledWith(url);
     expect(onUrlAccepted).toHaveBeenCalledWith("payment-1");
     expect(result).toEqual({ action: "accept" });
+  });
+
+  it.each([24, 48, 80, 120])("links every wrapped URL occurrence in the full prompt at width %i", async (width) => {
+    const { handleElicitationRequest } = await import("../elicitation-handler.ts");
+    const url = `https://auth.example.com/authorize?request_uri=urn%3Aietf%3Aparams%3Aoauth%3Arequest_uri%3A${"a".repeat(100)}`;
+    const ui = createUi({ select: vi.fn().mockResolvedValue("Decline") });
+
+    await handleElicitationRequest({ serverName: "demo", ui, allowUrl: true }, request({
+      mode: "url",
+      message: `Sign in at ${url}\nOr visit ${url} to continue.`,
+      elicitationId: "auth-1",
+      url,
+    }));
+
+    const prompt = String(ui.select.mock.calls[0][0]);
+    const rows = new Text(prompt, 1, 0).render(width);
+    const cells = rows.flatMap((row, rowIndex) => Array.from(stripTerminalSequences(row), (char, col) => ({
+      char,
+      row: rowIndex,
+      col,
+    })).filter(cell => cell.char.trim() !== ""));
+    const visible = cells.map(cell => cell.char).join("");
+    let occurrences = 0;
+    for (let start = visible.indexOf(url); start !== -1; start = visible.indexOf(url, start + url.length)) {
+      occurrences++;
+      const urlCells = cells.slice(start, start + url.length);
+      expect(new Set(urlCells.map(cell => cell.row)).size).toBeGreaterThan(1);
+      for (const cell of urlCells) {
+        expect(getOsc8LinkAtColumn(rows[cell.row], cell.col)).toBe(url);
+      }
+    }
+    expect(occurrences).toBe(3);
+    expect(mocks.open).not.toHaveBeenCalled();
   });
 
   it("rejects URL mode when the client advertised form-only support", async () => {

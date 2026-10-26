@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { OverlayHandle } from "@earendil-works/pi-tui";
+import { getOsc8LinkAtColumn, Text, type OverlayHandle } from "@earendil-works/pi-tui";
 import type { openMcpPanel } from "../commands.ts";
 import type { createMcpPanel } from "../mcp-panel.ts";
 
@@ -225,8 +225,8 @@ describe("authenticateServer", () => {
     );
   });
 
-  it("puts the OAuth link in the paste prompt without a confirmation", async () => {
-    const authorizationUrl = "https://auth.example.com/authorize?resource=https%3A%2F%2Fmcp.sentry.dev%2Fmcp";
+  it.each([24, 48, 80])("keeps the full OAuth URL clickable at width %i without a confirmation", async (width) => {
+    const authorizationUrl = `https://auth.example.com/authorize?resource=https%3A%2F%2Fmcp.sentry.dev%2Fmcp&state=${"a".repeat(100)}`;
     const callbackUrl = "http://localhost:3118/callback?code=code&state=state";
     const inputController = new AbortController();
     mocks.authenticate.mockImplementationOnce(async (_name, _url, _definition, options) => {
@@ -239,7 +239,7 @@ describe("authenticateServer", () => {
       notify: vi.fn(),
       setStatus: vi.fn(),
       confirm: vi.fn(async () => true),
-      input: vi.fn(async () => callbackUrl),
+      input: vi.fn(async (_title: string) => callbackUrl),
     };
     const { authenticateServer } = await import("../commands.ts");
 
@@ -263,11 +263,18 @@ describe("authenticateServer", () => {
     expect(ui.confirm).not.toHaveBeenCalled();
     expect(ui.input).toHaveBeenCalledWith(
       expect.stringContaining(
-        `\u001B]8;;${authorizationUrl}\u001B\\Open authorization page\u001B]8;;\u001B\\\n${authorizationUrl}`,
+        `\u001B]8;;${authorizationUrl}\u001B\\Open authorization page\u001B]8;;\u001B\\\n` +
+          `\u001B]8;;${authorizationUrl}\u001B\\${authorizationUrl}\u001B]8;;\u001B\\`,
       ),
       undefined,
       { signal: inputController.signal },
     );
+    const urlLine = ui.input.mock.calls[0][0].split("\n")[3];
+    const rows = new Text(urlLine, 1, 0).render(width);
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) {
+      expect(getOsc8LinkAtColumn(row, 1)).toBe(authorizationUrl);
+    }
   });
 
   it("does not open paste input when authorization was already cancelled", async () => {

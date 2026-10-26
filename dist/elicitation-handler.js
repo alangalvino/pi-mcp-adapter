@@ -3,6 +3,7 @@ import { AjvJsonSchemaValidator } from "@modelcontextprotocol/client/validators/
 import open from "open";
 import { abortable, throwIfAborted } from "./abort.js";
 import { combineAbortSignals } from "./runtime-owner.js";
+import { terminalHyperlink } from "./utils.js";
 const promptPauses = new WeakMap();
 export function registerElicitationHandler(client, options) {
     const state = { open: 0, deadlines: new Set() };
@@ -367,14 +368,16 @@ export async function handleUrlElicitation(options, params, signal) {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new ProtocolError(ProtocolErrorCode.InvalidParams, "URL elicitation only supports HTTP and HTTPS URLs");
     }
+    const urlLink = terminalHyperlink(params.url, params.url);
+    const message = params.message.replaceAll(params.url, () => urlLink);
     const decision = await abortable(options.ui.select([
         "MCP Browser Request",
         `Server: ${options.serverName}`,
         "",
-        params.message,
+        message,
         "",
         `Host: ${parsed.host}`,
-        `Full URL: ${params.url}`,
+        `Full URL: ${urlLink}`,
         "",
         "Open this URL in your browser?",
     ].join("\n"), ["Open", "Decline"]), signal);
