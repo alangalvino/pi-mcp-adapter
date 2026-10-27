@@ -337,6 +337,9 @@ describe("MCP elicitation", () => {
     "#permissions",
     "/work",
     ".json",
+    ".other/path",
+    ")extra",
+    "`extra",
     "?return_to=https://example.com/authorize",
   ])("does not link the requested URL as a prefix of a longer URL ending in %s", async (suffix) => {
     const { handleElicitationRequest } = await import("../elicitation-handler.ts");
@@ -356,6 +359,61 @@ describe("MCP elicitation", () => {
     expect(prompt).toContain(`Exact URL: \u001B]8;;${url}\u001B\\${url}\u001B]8;;\u001B\\`);
     expect(stripTerminalSequences(prompt)).toContain(`Longer URL: ${longerUrl}\nExact URL: ${url}`);
     expect(mocks.open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Continue at ", ""],
+    ["Continue at ", "."],
+    ["Continue at (", ")."],
+    ["Continue at `", "`."],
+    ["Continue at [", "];"],
+    ["Continue at <", ">"],
+    ['Continue at "', '",'],
+    ["Continue at ", "!"],
+    ["Continue at ", "?"],
+    ["Continue at ", ":"],
+  ])("links message URLs surrounded by %j and %j", async (prefix, suffix) => {
+    const { handleElicitationRequest } = await import("../elicitation-handler.ts");
+    const url = "https://example.com/authorize";
+    const ui = createUi({ select: vi.fn().mockResolvedValue("Decline") });
+
+    await handleElicitationRequest({ serverName: "demo", ui, allowUrl: true }, request({
+      mode: "url",
+      message: `${prefix}${url}${suffix}`,
+      elicitationId: "auth-1",
+      url,
+    }));
+
+    const messageLine = String(ui.select.mock.calls[0][0]).split("\n")[3];
+    expect(messageLine).toBe(`${prefix}\u001B]8;;${url}\u001B\\${url}\u001B]8;;\u001B\\${suffix}`);
+    const rows = new Text(messageLine, 1, 0).render(24);
+    const linkedRows = rows.filter(row => {
+      const targets = Array.from({ length: 24 }, (_, column) => getOsc8LinkAtColumn(row, column + 1))
+        .filter(Boolean);
+      for (const target of targets) expect(target).toBe(url);
+      return targets.length > 0;
+    });
+    expect(linkedRows.length).toBeGreaterThan(1);
+    expect(mocks.open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "https://example.com/authorize?next=(login)",
+    "https://example.com/authorize.",
+  ])("preserves punctuation in the target URL %s", async (url) => {
+    const { handleElicitationRequest } = await import("../elicitation-handler.ts");
+    const ui = createUi({ select: vi.fn().mockResolvedValue("Decline") });
+
+    await handleElicitationRequest({ serverName: "demo", ui, allowUrl: true }, request({
+      mode: "url",
+      message: `Continue at (${url}). Then use \`${url}\`.`,
+      elicitationId: "auth-1",
+      url,
+    }));
+
+    const link = `\u001B]8;;${url}\u001B\\${url}\u001B]8;;\u001B\\`;
+    expect(String(ui.select.mock.calls[0][0]).split("\n")[3])
+      .toBe(`Continue at (${link}). Then use \`${link}\`.`);
   });
 
   it("rejects URL mode when the client advertised form-only support", async () => {
