@@ -315,6 +315,10 @@ export function sanitizeTerminalText(text) {
         .replace(/\s+/g, " ")
         .trim();
 }
+/** Keep the full destination clickable when Pi wraps the visible label. */
+export function terminalHyperlink(label, url) {
+    return `\u001B]8;;${sanitizeTerminalText(url)}\u001B\\${sanitizeTerminalText(label)}\u001B]8;;\u001B\\`;
+}
 export function formatTerminalError(error) {
     const messages = [];
     const seen = new Set();

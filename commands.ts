@@ -33,14 +33,10 @@ import { getAuthStorageOptions, inspectAuthForUrl } from "./mcp-auth.ts";
 import { inspectBearerTokenForUrl, removeBearerToken } from "./mcp-bearer-store.ts";
 import { loadOnboardingState, markSetupCompleted as persistSetupCompleted, markSharedConfigHintShown } from "./onboarding-state.ts";
 import { findPiSignInImports, importPiSignIn } from "./pi-signin-import.ts";
-import { formatTerminalError, openPath, providerSignInMessage, resolveServerUrl, sanitizeTerminalText } from "./utils.ts";
+import { formatTerminalError, openPath, providerSignInMessage, resolveServerUrl, sanitizeTerminalText, terminalHyperlink } from "./utils.ts";
 import { isAbortError } from "./runtime-owner.ts";
 import { classifierRegistryOf, resolveSemanticClassifier, SEMANTIC_SEARCH_UNAVAILABLE } from "./semantic-search.ts";
 import { describeProjectServerBlock, keepProjectServerApprovals } from "./project-server-trust.ts";
-
-function terminalHyperlink(label: string, url: string): string {
-  return `\u001B]8;;${sanitizeTerminalText(url)}\u001B\\${sanitizeTerminalText(label)}\u001B]8;;\u001B\\`;
-}
 
 /**
  * True when this run mode can display a `ctx.ui.custom()` overlay.
@@ -489,7 +485,7 @@ export async function authenticateServer(
         if (inputSignal.aborted) return undefined;
         return ui.input(
           `Complete ${serverName} OAuth\n\n` +
-            `${terminalHyperlink("Open authorization page", authorizationUrl)}\n${authorizationUrl}\n\n` +
+            `${terminalHyperlink("Open authorization page", authorizationUrl)}\n${terminalHyperlink(authorizationUrl, authorizationUrl)}\n\n` +
             "Approve access, then paste the full callback URL from the browser address bar below.",
           undefined,
           { signal: inputSignal },
