@@ -1042,7 +1042,6 @@ export async function removeAuth(serverName, options = {}) {
         releaseRevocation();
     }
 }
-export { supportsOAuth } from "./utils.js";
 /**
  * Initialize the OAuth system on startup.
  * OAuth callback binding is lazy and starts from startAuth() only.

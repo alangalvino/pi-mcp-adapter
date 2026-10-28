@@ -99,7 +99,6 @@ export declare function getAuthStatus(serverName: string, options?: Authenticate
  * @param serverName - The name of the MCP server
  */
 export declare function removeAuth(serverName: string, options?: AuthenticateOptions): Promise<void>;
-export { supportsOAuth } from "./utils.ts";
 /**
  * Initialize the OAuth system on startup.
  * OAuth callback binding is lazy and starts from startAuth() only.
@@ -110,3 +109,4 @@ export declare function initializeOAuth(runtimeOrSignal?: McpOAuthRuntime | Abor
  * another runtime has pending/reserved callback state or is still active.
  */
 export declare function shutdownOAuth(runtime?: McpOAuthRuntime): Promise<void>;
+export {};

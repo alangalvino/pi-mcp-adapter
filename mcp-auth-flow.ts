@@ -1242,8 +1242,6 @@ export async function removeAuth(serverName: string, options: AuthenticateOption
   }
 }
 
-export { supportsOAuth } from "./utils.ts";
-
 /**
  * Initialize the OAuth system on startup.
  * OAuth callback binding is lazy and starts from startAuth() only.
